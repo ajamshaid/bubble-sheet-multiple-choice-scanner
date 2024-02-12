@@ -1,8 +1,7 @@
 package com.mcakir.scanner;
 
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.Point;
+import org.opencv.core.*;
+import org.opencv.imgproc.Imgproc;
 
 import java.util.Collections;
 import java.util.List;
@@ -25,6 +24,14 @@ public class Util {
     public static void write2File(Mat source, String name){
         imwrite(getOutput(name), source);
     }
+
+
+    public static Mat drawCounter(List<MatOfPoint> drafts){
+        Mat outputImage = new Mat(50, 50, CvType.CV_8UC3); // RGB image
+        Imgproc.drawContours(outputImage, drafts, -1, new Scalar(255, 255, 255), 2);
+        return outputImage;
+    }
+
 
     public static void sout(String str){
         System.out.println(str);

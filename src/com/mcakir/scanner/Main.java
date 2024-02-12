@@ -1,13 +1,23 @@
 package com.mcakir.scanner;
 
-import org.opencv.core.Core;
-import org.opencv.core.Mat;
+import com.aj.bubblesheet.BBScanner;
+import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 
-import static com.mcakir.scanner.Util.getSource;
-import static com.mcakir.scanner.Util.sout;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static com.mcakir.scanner.Util.*;
+import static org.opencv.core.CvType.CV_8UC1;
+import static org.opencv.imgproc.Imgproc.*;
 
 public class Main {
+
+
+
 
     static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -16,13 +26,18 @@ public class Main {
     public static void main(String[] args) throws Exception {
 
         sout("...started");
+        Mat source = Imgcodecs.imread(getSource("new-sheet.png"));
 
-        Mat source = Imgcodecs.imread(getSource("sheet-1.jpg"));
+        BBScanner scanner = new BBScanner(true);
+        scanner.scanImage(source);
 
-        Scanner scanner = new Scanner(source, 20);
-        scanner.setLogging(true);
-        scanner.scan();
+//       Scanner scanner = new Scanner(source, 18);
+//        scanner.setLogging(true);
+//        scanner.scan();
 
         sout("...finished");
     }
+
+
+
 }

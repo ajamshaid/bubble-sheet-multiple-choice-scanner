@@ -1,71 +1,64 @@
-package com.mcakir.scanner;
+package com.aj.bubblesheet;
 
 import org.opencv.core.*;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 
 import java.util.*;
 
 import static com.mcakir.scanner.Util.*;
+import static com.mcakir.scanner.Util.sortLeft2Right;
 import static org.opencv.core.CvType.CV_8UC1;
 import static org.opencv.imgproc.Imgproc.*;
-import static org.opencv.imgproc.Imgproc.drawContours;
 
-public class Scanner {
-
-    private final Mat source;
-    private final double[] ratio = new double[]{ 18, 15.5};
-    private final int questionCount;
-    private final String[] options = new String[]{"A", "B", "C", "D"};
-
+public class BBScanner {
+    boolean logging = false;
+    Mat canny, grayImage ,source, hierarchy, thresh;
     private Rect roi;
-    private Mat dilated, gray, thresh, blur, canny, adaptiveThresh, hierarchy;
     private List<MatOfPoint> contours, bubbles;
     private List<Integer> answers;
+    private final double[] ratio = new double[]{ 2, 10};
+    private final String[] options = new String[]{"A", "B", "C", "D"};
+    private final int questionCount=0;
 
-    private boolean logging = false;
-
-    public Scanner(Mat source, int questionCount) {
-        this.source = source;
-        this.questionCount = questionCount;
+    public BBScanner(boolean logging) {
+        this.logging = logging;
 
         hierarchy = new Mat();
         contours = new ArrayList<>();
         bubbles = new ArrayList<>();
         answers = new ArrayList<>();
     }
+    public void scanImage(Mat image) {
+        source = image;
+        // Preprocess the image
+        grayImage = new Mat();
+        Imgproc.cvtColor(source, grayImage, Imgproc.COLOR_BGR2GRAY);
+        Imgproc.threshold(grayImage, grayImage, 0, 255, Imgproc.THRESH_BINARY_INV + Imgproc.THRESH_OTSU);
 
-    public void setLogging(boolean logging) {
-        this.logging = logging;
-    }
+        if(logging) write2File(grayImage, "step_1_gray.png");
 
-    public void scan() throws Exception {
 
-        dilated = new Mat(source.size(), CV_8UC1);
-        dilate(source, dilated, getStructuringElement(MORPH_RECT, new Size(3, 3)));
-        if(logging) write2File(dilated, "step_1_dilated.png");
+        thresh = new Mat(grayImage.rows(), grayImage.cols(), grayImage.type());
+        threshold(grayImage, thresh, 150, 255, THRESH_BINARY);
+        if(logging) write2File(thresh, "step_2_thresh.png");
 
-        gray = new Mat(dilated.size(), CV_8UC1);
-        cvtColor(dilated, gray, COLOR_BGR2GRAY);
-        if(logging) write2File(gray, "step_2_gray.png");
+        int threshold = 100;
+        canny = new Mat(grayImage.size(), CV_8UC1);
+//        Canny(blur, canny, 160, 20);
+        Imgproc.Canny(grayImage, canny, threshold, threshold*3);
+        if(logging) write2File(canny, "step_3_canny.png");
 
-        thresh = new Mat(gray.rows(), gray.cols(), gray.type());
-        threshold(gray, thresh, 150, 255, THRESH_BINARY);
-        if(logging) write2File(thresh, "step_3_thresh.png");
+        findROI();
 
-        blur = new Mat(gray.size(), CV_8UC1);
-        blur(gray, blur, new Size(5., 5.));
-        if(logging) write2File(blur, "step_4_blur.png");
+        try {
+            findBubbles();
+        } catch (Exception e) {
 
-        canny = new Mat(blur.size(), CV_8UC1);
-        Canny(blur, canny, 160, 20);
-        if(logging) write2File(canny, "step_5_canny.png");
+            sout("bubble size............."+bubbles.size());
 
-        adaptiveThresh = new Mat(canny.rows(), gray.cols(), gray.type());
-        adaptiveThreshold(canny, adaptiveThresh, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 11, 2);
-        if(logging) write2File(adaptiveThresh, "step_6_adaptive_thresh.png");
-
-        findParentRectangle();
-
-        findBubbles();
+            throw new RuntimeException(e);
+        }
 
         recognizeAnswers();
 
@@ -83,13 +76,75 @@ public class Scanner {
         write2File(source, "result.png");
     }
 
-    private void findParentRectangle() throws Exception {
+ private void findBubbles() throws Exception {
 
-        findContours(adaptiveThresh.clone(), contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+        contours.clear();
+
+        findContours(canny.submat(roi), contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+        double threshold = 0;
+        double _w = roi.width / 18;//this.ratio[0];
+        double _h = roi.height / 15.5 ;//this.ratio[1];
+        double minThreshold = Math.floor(Math.min(_w, _h)) - threshold;
+        double maxThreshold = Math.ceil(Math.max(_w, _h)) + threshold;
+
+    /*    minThreshold = 3;
+        maxThreshold = 10;
+*/
+        if(logging) sout("findBubbles > ideal circle size > minThreshold: " + minThreshold + ", maxThreshold: " + maxThreshold);
+
+
+        if(logging) sout("------------Circle Contours Size " +contours.size());
+        List<MatOfPoint> drafts = new ArrayList<>();
+        for(MatOfPoint contour : contours){
+            Rect _rect = boundingRect(contour);
+            int w = _rect.width;
+            int h = _rect.height;
+            double ratio = Math.max(w, h) / Math.min(w, h);
+
+            if(logging) sout("findBubbles > founded circle > w: " + w + ", h: " + h);
+
+            if(ratio >= 0.9 && ratio <= 1.1)
+                if(Math.max(w, h) < maxThreshold && Math.min(w, h) >= minThreshold){
+                    System.out.println("------------adding contour:"+contour);
+                    drafts.add(contour);
+                }else{
+                    System.out.println("++++Misssing contour"+contour);
+                }
+        }
+
+       if(logging) sout("findBubbles > bubbles.size: " + drafts.size());
+
+/*
+        if(drafts.size() != questionCount * options.length){
+            throw new Exception("Couldn't capture all bubbles.");
+        }
+        // order bubbles on coordinate system
+*/
+        sortTopLeft2BottomRight(drafts);
+
+        bubbles = new ArrayList<>();
+
+        for(int j = 0; j < drafts.size(); j+=options.length*2){
+
+            List<MatOfPoint> row = drafts.subList(j, j + options.length*2);
+
+            sortLeft2Right(row);
+
+            if(logging) write2File(drawCounter(row), "drafts_"+j+".png");
+            bubbles.addAll(row);
+        }
+    }
+
+    public void findROI(){
+
+        hierarchy = new Mat() ;
+        // Find contours
+        contours = new ArrayList<>();
+
+        Imgproc.findContours(canny, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
         if(logging) sout("getParentRectangle > hiearchy data:\n" + hierarchy.dump());
-
-        // find rectangles
         HashMap<Double, MatOfPoint> rectangles = new HashMap<>();
         for(int i = 0; i < contours.size(); i++){
             MatOfPoint2f approxCurve = new MatOfPoint2f( contours.get(i).toArray() );
@@ -102,6 +157,8 @@ public class Scanner {
 
         if(logging) sout("getParentRectangle > contours.size: " + contours.size());
         if(logging) sout("getParentRectangle > rectangles.size: " + rectangles.size());
+
+
         if(logging) sout("getParentRectangle > rectangles.keySEt: " + rectangles.keySet());
         int parentIndex = -1;
 
@@ -135,17 +192,14 @@ public class Scanner {
 
         if(logging) sout("getParentRectangle > parentIndex: " + parentIndex);
 
-        if(parentIndex < 0){
-            throw new Exception("Couldn't capture main wrapper");
-        }
 
         roi = boundingRect(contours.get(parentIndex));
 
         if(logging) sout("getParentRectangle > original roi.x: " + roi.x + ", roi.y: " + roi.y);
         if(logging) sout("getParentRectangle > original roi.width: " + roi.width + ", roi.height: " + roi.height);
 
-        int padding = 30;
-
+      //  int padding = 2;
+        int padding = 20;
         roi.x += padding;
         roi.y += padding;
         roi.width -= 2 * padding;
@@ -154,62 +208,7 @@ public class Scanner {
         if(logging) sout("getParentRectangle > modified roi.x: " + roi.x + ", roi.y: " + roi.y);
         if(logging) sout("getParentRectangle > modified roi.width: " + roi.width + ", roi.height: " + roi.height);
 
-        if(logging) write2File(source.submat(roi), "step_7_roi.png");
-    }
-
-    private void findBubbles() throws Exception {
-
-        contours.clear();
-
-        findContours(canny.submat(roi), contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-
-        double threshold = 0;
-        double _w = roi.width / this.ratio[0];
-        double _h = roi.height / this.ratio[1];
-        double minThreshold = Math.floor(Math.min(_w, _h)) - threshold;
-        double maxThreshold = Math.ceil(Math.max(_w, _h)) + threshold;
-
-        if(logging) sout("findBubbles > ideal circle size > minThreshold: " + minThreshold + ", maxThreshold: " + maxThreshold);
-
-
-        if(logging) sout("------------Circle Contours Size " +contours.size());
-        List<MatOfPoint> drafts = new ArrayList<>();
-        for(MatOfPoint contour : contours){
-            Rect _rect = boundingRect(contour);
-            int w = _rect.width;
-            int h = _rect.height;
-            double ratio = Math.max(w, h) / Math.min(w, h);
-
-            if(logging) sout("findBubbles > founded circle > w: " + w + ", h: " + h);
-
-            if(ratio >= 0.9 && ratio <= 1.1)
-                if(Math.max(w, h) < maxThreshold && Math.min(w, h) >= minThreshold){
-                    System.out.println("------------adding contour:"+contour);
-                    drafts.add(contour);
-                }else{
-                    System.out.println("++++Misssing contour"+contour);
-                }
-        }
-
-        if(logging) sout("findBubbles > bubbles.size: " + drafts.size());
-
-        if(drafts.size() != questionCount * options.length){
-            throw new Exception("Couldn't capture all bubbles.");
-        }
-        // order bubbles on coordinate system
-
-        sortTopLeft2BottomRight(drafts);
-
-        bubbles = new ArrayList<>();
-
-        for(int j = 0; j < drafts.size(); j+=options.length*2){
-
-            List<MatOfPoint> row = drafts.subList(j, j + options.length*2);
-
-            sortLeft2Right(row);
-
-            bubbles.addAll(row);
-        }
+        if(logging) write2File(source.submat(roi), "step_3_roi.png");
     }
 
     private void recognizeAnswers(){
