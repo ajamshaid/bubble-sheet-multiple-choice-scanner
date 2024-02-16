@@ -26,7 +26,10 @@ public class Main {
     public static void main(String[] args) throws Exception {
 
         sout("...started");
-        Mat source = Imgcodecs.imread(getSource("new-sheet.png"));
+        //Mat source = Imgcodecs.imread(getSource("new-sheet.png"));
+
+        //Mat source = Imgcodecs.imread(getSource("sample6.jpg"));
+        Mat source = Imgcodecs.imread(getSource("Image (2).jpg"));
 
         BBScanner scanner = new BBScanner(true);
         scanner.scanImage(source);

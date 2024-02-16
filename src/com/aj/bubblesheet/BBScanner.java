@@ -18,7 +18,21 @@ public class BBScanner {
     private List<MatOfPoint> contours, bubbles;
     private List<Integer> answers;
     private final double[] ratio = new double[]{ 2, 10};
-    private final String[] options = new String[]{"A", "B", "C", "D"};
+    private final String[] options = new String[]{"A", "B", "C", "D","E"};
+
+    private final String[][] qNOArray =
+            new String[][]{
+                    {"1","11","21"},
+                    {"2","12","22"},
+                    {"3","13","23"},
+                    {"4","14","24"},
+                    {"5","15","25"},
+                    {"6","16","26"},
+                    {"7","17","27"},
+                    {"8","18","28"},
+                    {"9","19","29"},
+                    {"10","20","30"},
+    };
     private final int questionCount=0;
 
     public BBScanner(boolean logging) {
@@ -49,7 +63,9 @@ public class BBScanner {
         Imgproc.Canny(grayImage, canny, threshold, threshold*3);
         if(logging) write2File(canny, "step_3_canny.png");
 
-        findROI();
+        findROI(true);
+
+        sout("-----------ROI Extracted---------");
 
         try {
             findBubbles();
@@ -70,7 +86,7 @@ public class BBScanner {
 
         for(int index = 0; index < answers.size(); index++){
             Integer optionIndex = answers.get(index);
-            sout((index + 1) + ". " + (optionIndex == null ? "EMPTY/INVALID" : options[optionIndex]));
+      //      sout((index + 1) + ". " + (optionIndex == null ? "EMPTY/INVALID" : options[optionIndex]));
         }
 
         write2File(source, "result.png");
@@ -83,18 +99,16 @@ public class BBScanner {
         findContours(canny.submat(roi), contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
         double threshold = 0;
-        double _w = roi.width / 18;//this.ratio[0];
-        double _h = roi.height / 15.5 ;//this.ratio[1];
+        double _w = roi.width / 28;//this.ratio[0];
+        double _h = roi.height / 10 ;//this.ratio[1];
         double minThreshold = Math.floor(Math.min(_w, _h)) - threshold;
         double maxThreshold = Math.ceil(Math.max(_w, _h)) + threshold;
 
-    /*    minThreshold = 3;
-        maxThreshold = 10;
-*/
+//        minThreshold = 3;
+//        maxThreshold = 6;
+
         if(logging) sout("findBubbles > ideal circle size > minThreshold: " + minThreshold + ", maxThreshold: " + maxThreshold);
 
-
-        if(logging) sout("------------Circle Contours Size " +contours.size());
         List<MatOfPoint> drafts = new ArrayList<>();
         for(MatOfPoint contour : contours){
             Rect _rect = boundingRect(contour);
@@ -102,14 +116,15 @@ public class BBScanner {
             int h = _rect.height;
             double ratio = Math.max(w, h) / Math.min(w, h);
 
-            if(logging) sout("findBubbles > founded circle > w: " + w + ", h: " + h);
+            if(logging) System.out.print("\nfindBubbles > founded circle > w: " + w + ", h: " + h);
 
             if(ratio >= 0.9 && ratio <= 1.1)
                 if(Math.max(w, h) < maxThreshold && Math.min(w, h) >= minThreshold){
-                    System.out.println("------------adding contour:"+contour);
+
+                    if(logging) System.out.print("--------adding circle");
                     drafts.add(contour);
                 }else{
-                    System.out.println("++++Misssing contour"+contour);
+           //         System.out.println("++++Misssing contour"+contour);
                 }
         }
 
@@ -125,18 +140,18 @@ public class BBScanner {
 
         bubbles = new ArrayList<>();
 
-        for(int j = 0; j < drafts.size(); j+=options.length*2){
+        for(int j = 0; j < drafts.size(); j+=options.length*3){
 
-            List<MatOfPoint> row = drafts.subList(j, j + options.length*2);
+            List<MatOfPoint> row = drafts.subList(j, j + options.length*3);
 
             sortLeft2Right(row);
 
-            if(logging) write2File(drawCounter(row), "drafts_"+j+".png");
+//            if(logging) write2File(drawCounter(row), "drafts_"+j+".png");
             bubbles.addAll(row);
         }
     }
 
-    public void findROI(){
+    public void findROI(boolean logging){
 
         hierarchy = new Mat() ;
         // Find contours
@@ -144,7 +159,9 @@ public class BBScanner {
 
         Imgproc.findContours(canny, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
-        if(logging) sout("getParentRectangle > hiearchy data:\n" + hierarchy.dump());
+      //  if(logging) sout("getParentRectangle > hiearchy data:\n" + hierarchy.dump());
+        //if(logging) sout("Contours Found:\n" +contours.size());
+
         HashMap<Double, MatOfPoint> rectangles = new HashMap<>();
         for(int i = 0; i < contours.size(); i++){
             MatOfPoint2f approxCurve = new MatOfPoint2f( contours.get(i).toArray() );
@@ -183,11 +200,12 @@ public class BBScanner {
 
             if(hierarchy.get(0, k)[2] != -1) c++;
 
-            if (c >= 3){
+            if (c >= 3 && index < 100){
                 parentIndex = (int) index;
+                sout("Parent Index getParentRectangle > index: " + index + ", c: " + c);
             }
 
-            if(logging) sout("getParentRectangle > index: " + index + ", c: " + c);
+            //if(logging) sout("getParentRectangle > index: " + index + ", c: " + c);
         }
 
         if(logging) sout("getParentRectangle > parentIndex: " + parentIndex);
@@ -208,19 +226,22 @@ public class BBScanner {
         if(logging) sout("getParentRectangle > modified roi.x: " + roi.x + ", roi.y: " + roi.y);
         if(logging) sout("getParentRectangle > modified roi.width: " + roi.width + ", roi.height: " + roi.height);
 
-        if(logging) write2File(source.submat(roi), "step_3_roi.png");
+        //if(logging)
+            write2File(source.submat(roi), "step_3_roi.png");
     }
 
     private void recognizeAnswers(){
 
+        int rowNO = 0;
+        int colNo = 0;
+        int temp = 0;
         for(int i = 0; i< bubbles.size(); i+=options.length) {
-
             List<MatOfPoint> rows = bubbles.subList(i, i+options.length);
 
-            int[][] filled = new int[rows.size()][4];
-
+            //int[][] filled = new int[rows.size()][4];
+            int[][] filled = new int[rows.size()][5];
+            boolean isFilled = false;
             for (int j = 0; j < rows.size(); j++) {
-
                 MatOfPoint col = rows.get(j);
 
                 List<MatOfPoint> list = Arrays.asList(col);
@@ -231,19 +252,42 @@ public class BBScanner {
                 Mat conjuction = new Mat(thresh.size(), CvType.CV_8UC1);
                 Core.bitwise_and(thresh, mask, conjuction);
 
-//                if(logging) write2File(mask, "mask_" + i + "_" + j + ".png");
-//                if(logging) write2File(conjuction, "conjuction_" + i + "_" + j + ".png");
+      /*          if(logging) write2File(mask, "mask_" + i + "_" + j + ".png");
+                if(logging) write2File(conjuction, "conjuction_" + i + "_" + j + ".png");
+*/
+                Imgproc.findContours(canny, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
 
                 int countNonZero = Core.countNonZero(conjuction);
+                double pixel =countNonZero/contourArea(rows.get(j))*100;
 
-                if(logging) sout("recognizeAnswers > " + i + ":" + j + " > countNonZero: " + countNonZero);
+//                if(logging) sout("recognizeAnswers > " + i + ":" + j + " > countNonZero: " + countNonZero + " > pixel: " + pixel);
+                if(pixel>=45 && pixel<=500){
+                    //counting filled circles
+                    System.out.print("Q"+qNOArray[rowNO][colNo] +":"+options[j]+ "     ");
+                    isFilled = true;
+                }
+
+
 
                 filled[j] = new int[]{ countNonZero, i, j};
+                if(j==4 && !isFilled){
+                    System.out.print("Q"+qNOArray[rowNO][colNo] +":NAN  ");
+                }
             }
+
+            colNo++;
+            colNo = colNo <= 2 ? colNo:0;
+
+            if(((i+5)%15) == 0){
+                 rowNO++;
+                 sout("\n--------------------------");
+            }
+
 
             int[] selection = chooseFilledCircle(filled);
 
-            if(logging) sout("recognizeAnswers > selection is " + (selection == null ? "empty/invalid" : selection[2]));
+       //     if(logging) sout("recognizeAnswers > "+i+" > selection is " + (selection == null ? "empty/invalid" : selection[2]));
 
             if(selection != null){
 
