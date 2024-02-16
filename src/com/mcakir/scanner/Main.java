@@ -27,12 +27,14 @@ public class Main {
 
         sout("...started");
         //Mat source = Imgcodecs.imread(getSource("new-sheet.png"));
-
-        //Mat source = Imgcodecs.imread(getSource("sample6.jpg"));
-        Mat source = Imgcodecs.imread(getSource("Image (2).jpg"));
-
-        BBScanner scanner = new BBScanner(true);
-        scanner.scanImage(source);
+        BBScanner scanner = new BBScanner(false);
+        scanner.scanImage(Imgcodecs.imread(getSource("Image (1).jpg")),"Image (1).jpg");
+        scanner.scanImage(Imgcodecs.imread(getSource("Image (2).jpg")),"Image (2).jpg");
+        scanner.scanImage(Imgcodecs.imread(getSource("Image (3).jpg")),"Image (3).jpg");
+        scanner.scanImage(Imgcodecs.imread(getSource("Image (4).jpg")),"Image (4).jpg");
+        scanner.scanImage(Imgcodecs.imread(getSource("Image (5).jpg")),"Image (5).jpg");
+        scanner.scanImage(Imgcodecs.imread(getSource("Image (6).jpg")),"Image (6).jpg");
+        scanner.scanImage(Imgcodecs.imread(getSource("Image (7).jpg")),"Image (7).jpg");
 
 //       Scanner scanner = new Scanner(source, 18);
 //        scanner.setLogging(true);

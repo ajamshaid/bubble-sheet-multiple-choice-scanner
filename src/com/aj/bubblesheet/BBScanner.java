@@ -43,7 +43,11 @@ public class BBScanner {
         bubbles = new ArrayList<>();
         answers = new ArrayList<>();
     }
-    public void scanImage(Mat image) {
+    public void scanImage(Mat image, String name) {
+        sout("========================");
+        sout("Scanning: "+name);
+        sout("========================");
+
         source = image;
         // Preprocess the image
         grayImage = new Mat();
@@ -63,7 +67,7 @@ public class BBScanner {
         Imgproc.Canny(grayImage, canny, threshold, threshold*3);
         if(logging) write2File(canny, "step_3_canny.png");
 
-        findROI(true);
+        findROI(logging);
 
         sout("-----------ROI Extracted---------");
 
@@ -79,7 +83,7 @@ public class BBScanner {
         recognizeAnswers();
 
         sout("*************************************");
-        sout("*************************************");
+      /*  sout("*************************************");
         sout("answer is ....");
         sout("*************************************");
         sout("*************************************");
@@ -90,6 +94,8 @@ public class BBScanner {
         }
 
         write2File(source, "result.png");
+
+       */
     }
 
  private void findBubbles() throws Exception {
@@ -200,12 +206,12 @@ public class BBScanner {
 
             if(hierarchy.get(0, k)[2] != -1) c++;
 
-            if (c >= 3 && index < 100){
+            if (c >= 2 && index < 100){
                 parentIndex = (int) index;
                 sout("Parent Index getParentRectangle > index: " + index + ", c: " + c);
             }
 
-            //if(logging) sout("getParentRectangle > index: " + index + ", c: " + c);
+            if(logging) sout("getParentRectangle > index: " + index + ", c: " + c);
         }
 
         if(logging) sout("getParentRectangle > parentIndex: " + parentIndex);
