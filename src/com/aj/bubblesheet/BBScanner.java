@@ -20,19 +20,6 @@ public class BBScanner {
     private final double[] ratio = new double[]{ 2, 10};
     private final String[] options = new String[]{"A", "B", "C", "D","E"};
 
-    private final String[][] qNOArray =
-            new String[][]{
-                    {"1","11","21"},
-                    {"2","12","22"},
-                    {"3","13","23"},
-                    {"4","14","24"},
-                    {"5","15","25"},
-                    {"6","16","26"},
-                    {"7","17","27"},
-                    {"8","18","28"},
-                    {"9","19","29"},
-                    {"10","20","30"},
-    };
     private final int questionCount=0;
 
     public BBScanner(boolean logging) {
@@ -100,6 +87,7 @@ public class BBScanner {
 
  private void findBubbles() throws Exception {
 
+   //     logging  = true;
         contours.clear();
 
         findContours(canny.submat(roi), contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
@@ -134,7 +122,7 @@ public class BBScanner {
                 }
         }
 
-       if(logging) sout("findBubbles > bubbles.size: " + drafts.size());
+       sout("findBubbles > bubbles.size: " + drafts.size());
 
 /*
         if(drafts.size() != questionCount * options.length){
@@ -232,7 +220,7 @@ public class BBScanner {
         if(logging) sout("getParentRectangle > modified roi.x: " + roi.x + ", roi.y: " + roi.y);
         if(logging) sout("getParentRectangle > modified roi.width: " + roi.width + ", roi.height: " + roi.height);
 
-        //if(logging)
+        if(logging)
             write2File(source.submat(roi), "step_3_roi.png");
     }
 
@@ -241,6 +229,7 @@ public class BBScanner {
         int rowNO = 0;
         int colNo = 0;
         int temp = 0;
+        String[][] q_series = bubbles.size()==150 ? q30_series : q24_series;
         for(int i = 0; i< bubbles.size(); i+=options.length) {
             List<MatOfPoint> rows = bubbles.subList(i, i+options.length);
 
@@ -258,9 +247,12 @@ public class BBScanner {
                 Mat conjuction = new Mat(thresh.size(), CvType.CV_8UC1);
                 Core.bitwise_and(thresh, mask, conjuction);
 
-      /*          if(logging) write2File(mask, "mask_" + i + "_" + j + ".png");
-                if(logging) write2File(conjuction, "conjuction_" + i + "_" + j + ".png");
-*/
+                // Test code for debugging particular bubble.
+                /* if("2".equals(q_series[rowNO][colNo] ) ) {
+                     write2File(mask, "mask_" + i + "_" + j + ".png");
+                     write2File(conjuction, "conjuction_" + i + "_" + j + ".png");
+                }*/
+
                 Imgproc.findContours(canny, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
 
@@ -268,9 +260,9 @@ public class BBScanner {
                 double pixel =countNonZero/contourArea(rows.get(j))*100;
 
 //                if(logging) sout("recognizeAnswers > " + i + ":" + j + " > countNonZero: " + countNonZero + " > pixel: " + pixel);
-                if(pixel>=45 && pixel<=500){
+                if(pixel>=45 && pixel<=700){
                     //counting filled circles
-                    System.out.print("Q"+qNOArray[rowNO][colNo] +":"+options[j]+ "     ");
+                    System.out.print("Q"+q_series[rowNO][colNo] +":"+options[j]+ "     ");
                     isFilled = true;
                 }
 
@@ -278,7 +270,7 @@ public class BBScanner {
 
                 filled[j] = new int[]{ countNonZero, i, j};
                 if(j==4 && !isFilled){
-                    System.out.print("Q"+qNOArray[rowNO][colNo] +":NAN  ");
+                    System.out.print("Q"+q_series[rowNO][colNo] +":NAN  ");
                 }
             }
 
@@ -291,17 +283,17 @@ public class BBScanner {
             }
 
 
-            int[] selection = chooseFilledCircle(filled);
-
-       //     if(logging) sout("recognizeAnswers > "+i+" > selection is " + (selection == null ? "empty/invalid" : selection[2]));
-
-            if(selection != null){
-
-//                putText(source.submat(roi), "(" + i + "_" + selection[2] + ")", new Point(rows.get(selection[2]).get(0, 0)), Core.FONT_HERSHEY_SIMPLEX, 0.3, new Scalar(0, 255, 0));
-                drawContours(source.submat(roi), Arrays.asList(rows.get(selection[2])), -1, new Scalar(0, 255, 0), 3);
-            }
-
-            answers.add(selection == null ? null : selection[2]);
+//            int[] selection = chooseFilledCircle(filled);
+//
+//       //     if(logging) sout("recognizeAnswers > "+i+" > selection is " + (selection == null ? "empty/invalid" : selection[2]));
+//
+//            if(selection != null){
+//
+////                putText(source.submat(roi), "(" + i + "_" + selection[2] + ")", new Point(rows.get(selection[2]).get(0, 0)), Core.FONT_HERSHEY_SIMPLEX, 0.3, new Scalar(0, 255, 0));
+//                drawContours(source.submat(roi), Arrays.asList(rows.get(selection[2])), -1, new Scalar(0, 255, 0), 3);
+//            }
+//
+//            answers.add(selection == null ? null : selection[2]);
         }
 
         List<Integer> odds = new ArrayList<>();
